@@ -22,18 +22,21 @@ Token assignment_var_value;
 Token operator_token;
 Token print_token;
 
+std::string expression_string;
 int value;
+
 std::map<std::string, int> variables;
 
 void on_success()
 {
-    
 }
 
 void on_new_assignment()
 {
     assignment_var_name = Token();
     assignment_var_value = Token();
+    operator_token = Token();
+    expression_string = "";
     value = 0;
 }
 
@@ -47,37 +50,35 @@ void on_successful_replacement()
     variables[assignment_var_name.value] = value;
 }
 
-void on_pre_expression()
+void on_successful_expression()
 {
-    if (assignment_var_value.token == token_integer)
-        value = stoi(assignment_var_value.value);
-    else
-        value = variables[assignment_var_value.value];
+    //Evaluate expression string
+    printf("%s\n", expression_string.c_str());
 }
 
-void on_post_expression()
+void on_pre_expression()
 {
-    int other_value = 0;
-    if (assignment_var_value.token == token_integer)
-        other_value = stoi(assignment_var_value.value);
-    else
-        other_value = variables[assignment_var_value.value];
+    if (operator_token.hasNext)
+        expression_string += operator_token.value;
 
-    switch (operator_token.token)
-    {
-    case token_add:
-        value += other_value;
-        break;
-    case token_subtract:
-        value -= other_value;
-        break;
-    case token_divide:
-        value /= other_value;
-        break;
-    case token_multiply:
-        value *= other_value;
-        break;
-    }
+    expression_string += assignment_var_value.value;
+}
+
+Syntax operation = (operator_token << token_add) | (operator_token << token_divide) | (operator_token << token_multiply) | (operator_token << token_subtract);
+
+Syntax expression()
+{
+    return ((
+                (
+                    (assignment_var_value << token_integer) |
+                    (assignment_var_value << token_variable_name)) >>
+                on_pre_expression) +
+            (!(operation + expression)));
+}
+
+Syntax full_expression()
+{
+    return expression() >> on_successful_expression;
 }
 
 void on_print()
@@ -91,7 +92,7 @@ void on_print()
 int main()
 {
     //Define a program string
-    std::string program_string = "let x = 10 + 1 ; let y = 5; let z = x + y; y = y * 2 ; print x; print y; print \"hello\";";
+    std::string program_string = "let x = 10 + 1 * 4; let y = 5; let z = x + y; y = y * 2 ; print x; print y; print \"hello\";";
 
     //Make a new parser
     EasyParser parser;
@@ -121,19 +122,6 @@ int main()
     //Add comment block, comsuming the end of the block comment token
 
     //Make the parse tree
-    Syntax operation = (operator_token << token_add) | (operator_token << token_divide) | (operator_token << token_multiply) | (operator_token << token_subtract);
-
-    Syntax expression =
-        ((
-             (
-                 (assignment_var_value << token_integer) |
-                 (assignment_var_value << token_variable_name)) >>
-             on_pre_expression) +
-         (!(
-              operation +
-              ((assignment_var_value << token_integer) |
-               (assignment_var_value << token_variable_name))) >>
-          on_post_expression));
 
     Syntax assignment =
         ((
@@ -141,14 +129,14 @@ int main()
          (assignment_var_name << token_variable_name) +
          !(
              token_assign +
-             expression)) >>
+             full_expression)) >>
         on_successful_assignment;
 
     Syntax replacement =
-        ((assignment_var_name << token_variable_name) +
+        ((assignment_var_name << token_variable_name >> on_new_assignment) +
          !(
              token_assign +
-             expression)) >>
+             full_expression)) >>
         on_successful_replacement;
 
     Syntax print =
@@ -161,5 +149,11 @@ int main()
     Syntax program_syntax = ((~(statement + token_line_end)) + token_end_of_field) >> on_success;
 
     //Run the parser
-    parser.parse(program_string, program_syntax);
+    std::vector<Token> errors = parser.parse(program_string, program_syntax);
+
+    for (int i = 0; i < errors.size(); i++)
+    {
+        Token error = errors[i];
+        printf("Unknown character on line %d at character %d: %s\n", error.line_number, error.start_character, error.value.c_str());
+    }
 }

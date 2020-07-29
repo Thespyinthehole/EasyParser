@@ -22,13 +22,17 @@ void EasyParser::add_comment_rule(Tokens start, Tokens end, bool consume)
     comment_rules.insert(std::pair<int, Comment>((int)start, new_rule));
 }
 
-void EasyParser::parse(std::string read_string, Syntax syntax)
+std::vector<Token> EasyParser::parse(std::string read_string, Syntax syntax)
 {
     //Get the tokens - dumped to list in class
-    extract(read_string);
+    std::vector<Token> lexical_errors = extract(read_string);
 
+    if (lexical_errors.size() != 0)
+        return lexical_errors;
     //Begin parsing
     syntax.evaluate(*this);
+
+    return std::vector<Token>();
 }
 
 void EasyParser::set_end_of_field_token(Tokens end_of_field)
@@ -52,20 +56,22 @@ Token EasyParser::token_after(int offset)
     return extracted_tokens[current_token_position + offset];
 }
 
-void EasyParser::extract(std::string read_string)
+std::vector<Token> EasyParser::extract(std::string read_string)
 {
     //Set up the comment stack
     std::stack<Comment> comment_stack;
 
     //Extract the tokens from the string
-    std::list<Token> tokens = lexer.parse(read_string);
+    std::vector<Token> tokens = lexer.parse(read_string);
+
+    if (!lexer.successful)
+        return tokens;
 
     //Loop over tokens
-    std::list<Token>::iterator iter;
-    for (iter = tokens.begin(); iter != tokens.end(); iter++)
+    for (int i = 0; i < tokens.size(); i++)
     {
         //Get the token
-        Token next_token = *iter;
+        Token next_token = tokens[i];
 
         //If we are in a comment
         if (comment_stack.size() != 0)
@@ -103,6 +109,8 @@ void EasyParser::extract(std::string read_string)
                 extracted_tokens.push_back(next_token);
         }
     }
+
+    return std::vector<Token>();
 }
 
 Syntax::Syntax() {}
@@ -149,8 +157,30 @@ bool on_token_evaluate(Syntax &current_syntax, EasyParser &parser)
         return false;
     if (data.token_location != nullptr)
         *data.token_location = current_token;
+    if (current_syntax.on_complete != nullptr)
+        current_syntax.on_complete();
     parser.current_token_position++;
     return true;
+}
+
+bool on_self_evaluate(Syntax &current_syntax, EasyParser &parser)
+{
+    if (current_syntax.self_function == nullptr)
+        return true;
+
+    if (!current_syntax.self_function().evaluate(parser))
+        return false;
+
+    if (current_syntax.on_complete != nullptr)
+        current_syntax.on_complete();
+    return true;
+}
+
+Syntax::Syntax(Syntax (*self_syntax)())
+{
+    this->type = recursive_syntax;
+    on_evaluate = on_self_evaluate;
+    self_function = self_syntax;
 }
 
 Syntax::Syntax(Tokens token)
@@ -185,6 +215,19 @@ Syntax &Syntax::operator+=(Syntax adding_syntax)
     syntax_sequence.push_back(adding_syntax);
     return *this;
 }
+Syntax &Syntax::operator+=(Syntax (*syntax_function)())
+{
+    if (type != sequence)
+    {
+        Syntax toAdd = Syntax(*this);
+
+        type = sequence;
+        syntax_sequence.push_back(toAdd);
+    }
+    syntax_sequence.push_back(syntax_function);
+    return *this;
+}
+
 Syntax &Syntax::operator|=(Tokens adding_token)
 {
     if (type != or_syntax)
@@ -208,6 +251,19 @@ Syntax &Syntax::operator|=(Syntax adding_syntax)
         syntax_sequence.push_back(toAdd);
     }
     syntax_sequence.push_back(adding_syntax);
+    return *this;
+}
+
+Syntax &Syntax::operator|=(Syntax (*syntax_function)())
+{
+    if (type != or_syntax)
+    {
+        Syntax toAdd = Syntax(*this);
+
+        type = sequence;
+        syntax_sequence.push_back(toAdd);
+    }
+    syntax_sequence.push_back(syntax_function);
     return *this;
 }
 
@@ -294,7 +350,7 @@ bool on_or_evaluate(Syntax &current_syntax, EasyParser &parser)
     int start_location = parser.current_token_position;
     for (int offset = 0; offset < current_syntax.syntax_sequence.size(); offset++)
     {
-       if (current_syntax.syntax_sequence[offset].evaluate(parser))
+        if (current_syntax.syntax_sequence[offset].evaluate(parser))
         {
             if (current_syntax.on_complete != nullptr)
                 current_syntax.on_complete();
@@ -363,6 +419,9 @@ bool on_any_evaluate(Syntax &current_syntax, EasyParser &parser)
         else
             parser.current_token_position = start_location;
     }
+
+    if (current_syntax.on_complete != nullptr)
+        current_syntax.on_complete();
     return true;
 }
 

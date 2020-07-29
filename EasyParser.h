@@ -1,6 +1,6 @@
 #ifndef EasyParser_H
 #define EasyParser_H
-#include "EasyLexer.h"
+#include "../EasyLexer/EasyLexer.h"
 #include <set>
 
 enum Tokens : int;
@@ -14,7 +14,8 @@ enum SyntaxTypes
     sequence,
     or_syntax,
     any_syntax,
-    maybe_syntax
+    maybe_syntax,
+    recursive_syntax
 };
 
 struct Comment
@@ -45,7 +46,7 @@ private:
     std::map<int, Comment> comment_rules;
 
     //Extracts the tokens from the string, storing them in the queue
-    void extract(std::string read_string);
+    std::vector<Token> extract(std::string read_string);
 
 public:
     int current_token_position = 0;
@@ -62,7 +63,7 @@ public:
     void set_end_of_field_token(Tokens end_of_field);
 
     //Set up a new string to be processed. read_string - the string to be processed
-    void parse(std::string read_string, Syntax syntax);
+    std::vector<Token> parse(std::string read_string, Syntax syntax);
 
     //Gets the next token to be analysis
     Token next_token();
@@ -77,13 +78,14 @@ private:
     bool (*on_evaluate)(Syntax &, EasyParser &) = nullptr;
 
 public:
+    Syntax (*self_function)() = nullptr;
     ReadTokenData read_token_data;
-    // std::pair<Syntax,Syntax> or_pair;
     std::vector<Syntax> syntax_sequence;
     void (*on_complete)() = nullptr;
     SyntaxTypes type = not_set;
     Syntax();
     Syntax(Tokens token);
+    Syntax(Syntax (*function)());
     Syntax(SyntaxTypes type) { this->type = type; };
     Syntax(SyntaxTypes type, bool (*evaluate)(Syntax &, EasyParser &));
     Syntax(SyntaxTypes type, bool (*evaluate)(Syntax &, EasyParser &), Tokens token_type);
@@ -92,8 +94,10 @@ public:
     Syntax &operator>>(void (*on_complete)());
     Syntax &operator+=(Tokens adding_token);
     Syntax &operator+=(Syntax adding_syntax);
+    Syntax &operator+=(Syntax (*function)());
     Syntax &operator|=(Tokens adding_token);
     Syntax &operator|=(Syntax adding_syntax);
+    Syntax &operator|=(Syntax (*function)());
 
     bool evaluate(EasyParser &parser);
 };
