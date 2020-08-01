@@ -83,6 +83,118 @@ ParseTree operation(){
 ```
 
 #### Epsilon
+The epsilon keyword defines a `ParseTree` which should be skipped by the parser. This is useful for a few cases which will be discussed in the next few sections.
+
+#### Any number
+Sometimes you want to repeat a section of grammar, to do this you can make clever use of the epsilon. If you make a function which contains what you want to repeat, you can then create a repeater function which uses your function followed by itself.
+
+Example:
+```c
+ParseTree statement()
+{
+    return token_variable_name + token_line_end;
+}
+
+ParseTree statements()
+{
+    return (ParseTree(statement) + statements) | epsilon;
+}
+```
+
+#### One Or None
+Using the same technique as the any number method, you can create a function that either uses the grammar or it does not. This can be done by making your function to the left of an or epsilon.
+
+Example:
+
+```c
+ParseTree one_or_none()
+{
+    return (operation + token_variable_name) | epsilon;
+}
+```
+
+#### Note
+After you have defined your grammar, for every function you have made which will be used in the grammar, you need to tell the parser about it. This can be done through the `register_tree` function, which takes the function and a name(this will allow the grammar to be nicely printed in a later update).
+
+Example:
+```c
+    parser.register_tree(program, "program");
+    parser.register_tree(statement, "statement");
+```
+
+Finally, you will need to tell the parser which function is the entry point for the grammar. This is done by setting the `program` variable of the parser to the function which in the start.
+
+Example:
+```c
+    parser.program = program;
+```
+
+### Adding Interactions
+Using all of the techniques above, you should be able to make complex grammars. However, currently this will only check whether the input fits the grammar you have defined, but we want to add some functionality to this. There are 2 methods to interact with the grammar, storing tokens and running functions.
+
+#### Storing Tokens
+When you add a token to the grammar, you can define a location for that token to be stored when it successfully reads. This can be done with the `<<` operator.
+
+Example:
+
+```c
+Token variable_name;
+
+ParseTree variable(){
+    return variable_name << token_variable_name;
+}
+```
+
+The `Token` class stores the type of token it is(`token_type`), the line(`line_number`) and character position(`start_character`) of the start of the token and finally the full string of the token(`value`).
+
+#### Running Functions
+Similar to adding a token storage location, you can add a void parameterless function to a `ParseTree` object which will be run when that `ParseTree` successfully is parsed. This uses the `>>` operator.
+
+Example:
+```c
+void on_variable_name(){
+    
+}
+
+ParseTree variable(){
+    return token_variable_name >> on_variable_name;
+}
+```
+
+It is possible to combine the token storage and function running on a single token, so you can instantly use that token. However, the function running can be applied to any `ParseTree` whereas the token storage can only be applied to tokens.
+
+
+Example:
+```c
+Token variable_name;
+
+void on_variable_name(){
+    
+}
+
+ParseTree variable(){
+    return variable_name << token_variable_name >> on_variable_name;
+}
+```
+
+### Running The Parser
+After you have step up your tokens and your grammar, you are ready to parse. This is as simple as doing `parser.parse`, using your input string as a parameter. However, if there is an error with the parsing you will not be able to see what is happening. Below is an example of a basic method to debug what went wrong during parsing.
+
+Example:
+```c
+    try
+    {
+        parser.parse(program_string);
+    }
+    catch (LexicalException e)
+    {
+        printf("%s", e.what());
+    }
+    catch (SyntaxException e)
+    {
+        printf("Syntax error on line %d at character %d, error: %s", e.error_token.line_number, e.error_token.start_character, e.error_token.value.c_str());
+    }
+```
 
 ## Limitations
 - The parser will only report the first error that it finds with the given input.  
