@@ -93,12 +93,12 @@ int main()
     parser.add_new_token(token_open_bracket, "\\(");
     parser.add_new_token(token_close_bracket, "\\)");
 
+    //Set the token which defines the end of the program
     parser.end_of_field_token = token_end_of_field;
 
     //This is needed to parse
     parser.register_tree(program, "program");
     parser.register_tree(statement, "statement");
-    // parser.register_tree(assignment,"assignment");
     parser.register_tree(declaration, "declaration");
     parser.register_tree(full_expression, "full_expression");
     parser.register_tree(bracket_expression, "bracket_expression");
@@ -107,29 +107,19 @@ int main()
     parser.register_tree(statements, "statements");
     parser.register_tree(extra, "extra");
 
-    //This is needed for pretty output
-    parser.register_token_name(token_line_end, "token_line_end");
-    parser.register_token_name(token_variable_name, "token_variable_name");
-    parser.register_token_name(token_add, "token_add");
-    parser.register_token_name(token_subtract, "token_subtract");
-    parser.register_token_name(token_multiply, "token_multiply");
-    parser.register_token_name(token_divide, "token_divide");
-    parser.register_token_name(token_let, "token_let");
-    parser.register_token_name(token_assign, "token_assign");
-    parser.register_token_name(token_integer, "token_integer");
-    parser.register_token_name(token_open_bracket, "token_open_bracket");
-    parser.register_token_name(token_close_bracket, "token_close_bracket");
-    parser.register_token_name(token_end_of_field, "EOF");
-
+    //Add tokens that will be removed before parsing
     parser.add_ignored_token(token_white_space);
 
-    //This needs to be set
+    //Define your grammar
     parser.program = program;
 
+    //Run the parser
     try
     {
         parser.parse(program_string);
     }
+
+    //Catch any exceptions
     catch (LexicalException e)
     {
         printf("%s", e.what());
