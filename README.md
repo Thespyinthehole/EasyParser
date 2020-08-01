@@ -118,15 +118,15 @@ After you have defined your grammar, for every function you have made which will
 
 Example:
 ```c
-    parser.register_tree(program, "program");
-    parser.register_tree(statement, "statement");
+parser.register_tree(program, "program");
+parser.register_tree(statement, "statement");
 ```
 
 Finally, you will need to tell the parser which function is the entry point for the grammar. This is done by setting the `program` variable of the parser to the function which in the start.
 
 Example:
 ```c
-    parser.program = program;
+parser.program = program;
 ```
 
 ### Adding Interactions
@@ -182,18 +182,18 @@ After you have step up your tokens and your grammar, you are ready to parse. Thi
 
 Example:
 ```c
-    try
-    {
-        parser.parse(program_string);
-    }
-    catch (LexicalException e)
-    {
-        printf("%s", e.what());
-    }
-    catch (SyntaxException e)
-    {
-        printf("Syntax error on line %d at character %d, error: %s", e.error_token.line_number, e.error_token.start_character, e.error_token.value.c_str());
-    }
+try
+{
+    parser.parse(program_string);
+}
+catch (LexicalException e)
+{
+    printf("%s", e.what());
+}
+catch (SyntaxException e)
+{
+    printf("Syntax error on line %d at character %d, error: %s", e.error_token.line_number, e.error_token.start_character, e.error_token.value.c_str());
+}
 ```
 
 ## Limitations
