@@ -1,119 +1,79 @@
 #ifndef EasyParser_H
 #define EasyParser_H
 #include "../EasyLexer/EasyLexer.h"
+#include <algorithm>
 #include <set>
 
-enum Tokens : int;
-
-class Syntax;
-
-enum SyntaxTypes
+enum ParseTreeType
 {
-    not_set,
-    read_token,
+    terminal_token,
     sequence,
-    or_syntax,
-    any_syntax,
-    maybe_syntax,
-    recursive_syntax
+    or_tokens,
+    recursive,
+    nothing
 };
 
-struct Comment
+class SyntaxException : public std::exception
 {
-    int end_token;
-    bool consume_last_token;
+public:
+    Token error_token;
+    SyntaxException(Token);
 };
 
-struct ReadTokenData
-{
-    Token *token_location;
-    Tokens token_type;
-};
+class EasyParser;
 
-class EasyParser
+class ParseTree
 {
 private:
-    //Stores a lexer in the parser to extract tokens from the string
-    EasyLexer lexer;
-
-    //Stores the list of tokens extracted from the string
-    std::vector<Token> extracted_tokens;
-
-    //Stores the tokens that should be ignored
-    std::set<int> ignored_tokens;
-
-    //Stores the comment rules
-    std::map<int, Comment> comment_rules;
-
-    //Extracts the tokens from the string, storing them in the queue
-    std::vector<Token> extract(std::string read_string);
-
-public:
-    int current_token_position = 0;
-    //Add a new valid token to the set of valid tokens. token- the token type, regex - the regex that defines the token
-    void add_new_token(Tokens token, std::string regex);
-
-    //Add a token that will be ignored by the parser. token - the token to ignore
-    void add_ignored_token(Tokens token);
-
-    //Add a rule that will ignore any tokens in between 2 tokens. start - the token at the start of the comment, end - the token at the end of a comment, consume - should the end token be used
-    void add_comment_rule(Tokens start, Tokens end, bool consume);
-
-    //Set what token type declares end of field
-    void set_end_of_field_token(Tokens end_of_field);
-
-    //Set up a new string to be processed. read_string - the string to be processed
-    std::vector<Token> parse(std::string read_string, Syntax syntax);
-
-    //Gets the next token to be analysis
-    Token next_token();
-
-    //Gets the next token from current token position shifted by the offset
-    Token token_after(int offset);
-};
-
-class Syntax
-{
-private:
-    bool (*on_evaluate)(Syntax &, EasyParser &) = nullptr;
-
-public:
-    Syntax (*self_function)() = nullptr;
-    ReadTokenData read_token_data;
-    std::vector<Syntax> syntax_sequence;
     void (*on_complete)() = nullptr;
-    SyntaxTypes type = not_set;
-    Syntax();
-    Syntax(Tokens token);
-    Syntax(Syntax (*function)());
-    Syntax(SyntaxTypes type) { this->type = type; };
-    Syntax(SyntaxTypes type, bool (*evaluate)(Syntax &, EasyParser &));
-    Syntax(SyntaxTypes type, bool (*evaluate)(Syntax &, EasyParser &), Tokens token_type);
-    Syntax(SyntaxTypes type, bool (*evaluate)(Syntax &, EasyParser &), Token *output, Tokens token_type);
-    Syntax(SyntaxTypes type, bool (*evaluate)(Syntax &, EasyParser &), void (*on_complete)(), Tokens token_type);
-    Syntax &operator>>(void (*on_complete)());
-    Syntax &operator+=(Tokens adding_token);
-    Syntax &operator+=(Syntax adding_syntax);
-    Syntax &operator+=(Syntax (*function)());
-    Syntax &operator|=(Tokens adding_token);
-    Syntax &operator|=(Syntax adding_syntax);
-    Syntax &operator|=(Syntax (*function)());
 
-    bool evaluate(EasyParser &parser);
+public:
+    Tokens token_type;
+    Token *output_location = nullptr;
+    ParseTreeType type;
+    ParseTree (*recursive_parsing)() = nullptr;
+    std::vector<ParseTree> other_trees;
+    int evaluate(std::vector<Token>, int, bool, EasyParser);
+    ParseTree();
+    ParseTree(Tokens);
+    ParseTree(ParseTree (*)());
+    ParseTree(ParseTree, ParseTree);
+    ParseTree operator>>(void (*)());
 };
 
-Syntax operator<<(Token &token_location, Tokens token_type);
-Syntax operator>>(Tokens token_type, void (*on_complete)());
-Syntax operator+(Tokens left_token, Tokens right_token);
-Syntax operator+(Syntax left_syntax, Tokens right_token);
-Syntax operator+(Tokens left_token, Syntax right_syntax);
-Syntax operator+(Syntax left_syntax, Syntax right_syntax);
-Syntax operator|(Tokens left_token, Tokens right_token);
-Syntax operator|(Syntax left_syntax, Tokens right_token);
-Syntax operator|(Tokens left_token, Syntax right_syntax);
-Syntax operator|(Syntax left_syntax, Syntax right_syntax);
-Syntax operator~(Syntax syntax);
-Syntax operator~(Tokens token);
-Syntax operator!(Syntax syntax);
-Syntax operator!(Tokens token);
+ParseTree operator+(ParseTree, ParseTree);
+ParseTree operator+(Tokens, Tokens);
+ParseTree operator+(Tokens, ParseTree (*)());
+ParseTree operator+(ParseTree (*)(), Tokens);
+ParseTree operator|(ParseTree, ParseTree);
+ParseTree operator|(Tokens, Tokens);
+ParseTree operator>>(Tokens, void (*)());
+ParseTree operator<<(Token &, Tokens);
+
+class EasyParser : public EasyLexer
+{
+private:
+    std::vector<Tokens> ignored_tokens;
+    std::map<ParseTree (*)(), std::string> function_names;
+    void remove_ignored_tokens(std::vector<Token> &);
+    std::string generate_syntax(ParseTree, bool);
+    std::map<ParseTree (*)(), std::set<int>> first_sets;
+    std::map<ParseTree (*)(), std::set<int>> follow_sets;
+    void generate_first_sets();
+    void generate_follow_sets();
+    void follow_set(ParseTree (*)(), std::map<ParseTree (*)(), std::set<int>> &);
+    void follow_set(ParseTree, std::set<int>, std::map<ParseTree (*)(), std::set<int>> &);
+
+public:
+    std::map<Tokens, std::string> token_names;
+    std::set<int> first_set(ParseTree);
+    ParseTree (*program)();
+    std::string get_grammar();
+    void parse(std::string);
+    void add_ignored_token(Tokens);
+    void register_tree(ParseTree (*)(), std::string);
+    void register_token_name(Tokens, std::string);
+};
+
+#define epsilon ParseTree()
 #endif

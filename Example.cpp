@@ -11,149 +11,131 @@ enum Tokens : int
     token_multiply,
     token_divide,
     token_let = 2,
-    token_print = 100,
     token_assign,
     token_integer = 4,
-    token_string_type
+    token_open_bracket,
+    token_close_bracket
 };
 
-Token assignment_var_name;
-Token assignment_var_value;
-Token operator_token;
-Token print_token;
-
-std::string expression_string;
-int value;
-
-std::map<std::string, int> variables;
-
-void on_success()
+ParseTree operation()
 {
+    return token_add | token_divide | token_multiply | token_subtract;
 }
 
-void on_new_assignment()
+ParseTree bracket_expression();
+ParseTree full_expression();
+ParseTree extra();
+
+ParseTree expression()
 {
-    assignment_var_name = Token();
-    assignment_var_value = Token();
-    operator_token = Token();
-    expression_string = "";
-    value = 0;
+    return (token_integer + extra);
 }
 
-void on_successful_assignment()
+ParseTree bracket_expression()
 {
-    variables.insert(std::pair<std::string, int>(assignment_var_name.value, value));
+    return token_open_bracket + full_expression + token_close_bracket;
 }
 
-void on_successful_replacement()
+ParseTree full_expression()
 {
-    variables[assignment_var_name.value] = value;
+    return (bracket_expression | ParseTree(expression)) + extra;
 }
 
-void on_successful_expression()
+ParseTree declaration()
 {
-    //Evaluate expression string
-    printf("%s\n", expression_string.c_str());
+    return token_let + token_variable_name + token_assign + full_expression;
 }
 
-void on_pre_expression()
+ParseTree extra()
 {
-    if (operator_token.hasNext)
-        expression_string += operator_token.value;
-
-    expression_string += assignment_var_value.value;
+    return (operation + ParseTree(full_expression)) | epsilon;
 }
 
-Syntax operation = (operator_token << token_add) | (operator_token << token_divide) | (operator_token << token_multiply) | (operator_token << token_subtract);
-
-Syntax expression()
+ParseTree assignment()
 {
-    return ((
-                (
-                    (assignment_var_value << token_integer) |
-                    (assignment_var_value << token_variable_name)) >>
-                on_pre_expression) +
-            (!(operation + expression)));
+    return token_variable_name + token_assign + full_expression;
 }
 
-Syntax full_expression()
+ParseTree statement()
 {
-    return expression() >> on_successful_expression;
+    return declaration + token_line_end;
 }
 
-void on_print()
+ParseTree statements()
 {
-    if (print_token.token == token_variable_name)
-        printf("%d", variables[print_token.value]);
-    else
-        printf("%s", print_token.value.substr(1, print_token.value.size() - 2).c_str());
+    return (ParseTree(statement) + statements) | epsilon;
+}
+
+ParseTree program()
+{
+    return statements + token_end_of_field;
 }
 
 int main()
 {
     //Define a program string
-    std::string program_string = "let x = 10 + 1 * 4; let y = 5; let z = x + y; y = y * 2 ; print x; print y; print \"hello\";";
+    std::string program_string = "let x = (1*3) + (4); let b = 5;";
 
     //Make a new parser
     EasyParser parser;
 
     //Add the token regex definitions
-    parser.add_new_token(token_white_space, "\\s+");
+    parser.add_new_token(token_white_space, "\\s");
     parser.add_new_token(token_variable_name, "[a-zA-Z_][a-zA-Z0-9_]*");
     parser.add_new_token(token_let, "let");
-    parser.add_new_token(token_print, "print");
-    parser.add_new_token(token_line_end, ";");
     parser.add_new_token(token_add, "\\+");
     parser.add_new_token(token_subtract, "-");
     parser.add_new_token(token_multiply, "\\*");
     parser.add_new_token(token_divide, "/");
     parser.add_new_token(token_assign, "=");
     parser.add_new_token(token_integer, "-?[0-9]+");
-    parser.add_new_token(token_string_type, "\"([^\"])*\"");
+    parser.add_new_token(token_line_end, ";");
+    parser.add_new_token(token_open_bracket, "\\(");
+    parser.add_new_token(token_close_bracket, "\\)");
 
-    //Set end of field
-    parser.set_end_of_field_token(token_end_of_field);
+    parser.end_of_field_token = token_end_of_field;
 
-    //Add ignored tokens
+    //This is needed to parse
+    parser.register_tree(program, "program");
+    parser.register_tree(statement, "statement");
+    // parser.register_tree(assignment,"assignment");
+    parser.register_tree(declaration, "declaration");
+    parser.register_tree(full_expression, "full_expression");
+    parser.register_tree(bracket_expression, "bracket_expression");
+    parser.register_tree(expression, "expression");
+    parser.register_tree(operation, "operation");
+    parser.register_tree(statements, "statements");
+    parser.register_tree(extra, "extra");
+
+    //This is needed for pretty output
+    parser.register_token_name(token_line_end, "token_line_end");
+    parser.register_token_name(token_variable_name, "token_variable_name");
+    parser.register_token_name(token_add, "token_add");
+    parser.register_token_name(token_subtract, "token_subtract");
+    parser.register_token_name(token_multiply, "token_multiply");
+    parser.register_token_name(token_divide, "token_divide");
+    parser.register_token_name(token_let, "token_let");
+    parser.register_token_name(token_assign, "token_assign");
+    parser.register_token_name(token_integer, "token_integer");
+    parser.register_token_name(token_open_bracket, "token_open_bracket");
+    parser.register_token_name(token_close_bracket, "token_close_bracket");
+    parser.register_token_name(token_end_of_field, "EOF");
+
     parser.add_ignored_token(token_white_space);
 
-    //Add single comment line, do not consume the new line
+    //This needs to be set
+    parser.program = program;
 
-    //Add comment block, comsuming the end of the block comment token
-
-    //Make the parse tree
-
-    Syntax assignment =
-        ((
-             token_let >> on_new_assignment) +
-         (assignment_var_name << token_variable_name) +
-         !(
-             token_assign +
-             full_expression)) >>
-        on_successful_assignment;
-
-    Syntax replacement =
-        ((assignment_var_name << token_variable_name >> on_new_assignment) +
-         !(
-             token_assign +
-             full_expression)) >>
-        on_successful_replacement;
-
-    Syntax print =
-        (token_print +
-         ((print_token << token_string_type) |
-          (print_token << token_variable_name))) >>
-        on_print;
-
-    Syntax statement = assignment | replacement | print;
-    Syntax program_syntax = ((~(statement + token_line_end)) + token_end_of_field) >> on_success;
-
-    //Run the parser
-    std::vector<Token> errors = parser.parse(program_string, program_syntax);
-
-    for (int i = 0; i < errors.size(); i++)
+    try
     {
-        Token error = errors[i];
-        printf("Unknown character on line %d at character %d: %s\n", error.line_number, error.start_character, error.value.c_str());
+        parser.parse(program_string);
+    }
+    catch (LexicalException e)
+    {
+        printf("%s", e.what());
+    }
+    catch (SyntaxException e)
+    {
+        printf("Syntax error on line %d at character %d, error: %s", e.error_token.line_number, e.error_token.start_character, e.error_token.value.c_str());
     }
 }
