@@ -5,7 +5,7 @@ This requires [EasyLexer](https://github.com/Thespyinthehole/EasyLexer) to work.
 
 
 ## Introduction
-This project is a generic parser library for LL(1) grammars. It is made using JavaCC as inspiration and was orginally developed in order to assist the generation of LLVM. The parser is a 3 pass parser, 1 for lexical analysis, 1 for syntax checking and finally 1 for running over the input string.
+This project is a generic parser library for LL(1) context-free grammars. It is made using JavaCC as inspiration and was orginally developed in order to assist the generation of LLVM. The parser is a 3 pass parser, 1 for lexical analysis, 1 for syntax checking and finally 1 for running over the input string.
 
 ## How To Use
 This will use [Example.cpp](https://github.com/Thespyinthehole/EasyParser/blob/master/Example.cpp) to show how to use this library. 
