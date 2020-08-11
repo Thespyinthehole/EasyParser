@@ -188,6 +188,7 @@ void EasyParser::generate_follow_sets()
 void EasyParser::register_tree(ParseTree (*function)(), std::string name)
 {
     function_names.insert(std::pair<ParseTree (*)(), std::string>(function, name));
+    recursive_trees.insert(std::pair<ParseTree (*)(), ParseTree>(function, function()));
 }
 
 void EasyParser::register_token_name(Tokens token, std::string name)
@@ -318,7 +319,7 @@ ParseTree operator|(ParseTree lhs, ParseTree rhs)
     return or_tree;
 }
 
-int ParseTree::evaluate(std::vector<Token> tokens, int offset, bool testing, EasyParser parser)
+int ParseTree::evaluate(std::vector<Token> &tokens, int offset, bool testing, EasyParser &parser)
 {
     if (offset >= tokens.size())
         return offset;
@@ -327,7 +328,7 @@ int ParseTree::evaluate(std::vector<Token> tokens, int offset, bool testing, Eas
     case terminal_token:
     {
         Token next_token = tokens[offset++];
-        if (testing && output_location != nullptr)
+        if (!testing && output_location != nullptr)
             *output_location = next_token;
     }
     break;
@@ -365,15 +366,13 @@ int ParseTree::evaluate(std::vector<Token> tokens, int offset, bool testing, Eas
     break;
 
     case recursive:
-        offset = recursive_parsing().evaluate(tokens, offset, testing, parser);
+        offset = parser.recursive_trees[recursive_parsing].evaluate(tokens, offset, testing, parser);
     }
 
-    if (testing && on_complete != nullptr)
+    if (!testing && on_complete != nullptr)
         on_complete();
     return offset;
 }
-
-//This allows the data to be printed out nicely. This will be implemented at a later stage
 
 /**
  std::map<ParseTree (*)(), std::set<int>>::iterator iter = first_sets.begin();
@@ -432,18 +431,3 @@ int ParseTree::evaluate(std::vector<Token> tokens, int offset, bool testing, Eas
     }
     printf("\n\n");
  */
-
-
-    //This is needed for pretty output
-    // parser.register_token_name(token_line_end, "token_line_end");
-    // parser.register_token_name(token_variable_name, "token_variable_name");
-    // parser.register_token_name(token_add, "token_add");
-    // parser.register_token_name(token_subtract, "token_subtract");
-    // parser.register_token_name(token_multiply, "token_multiply");
-    // parser.register_token_name(token_divide, "token_divide");
-    // parser.register_token_name(token_let, "token_let");
-    // parser.register_token_name(token_assign, "token_assign");
-    // parser.register_token_name(token_integer, "token_integer");
-    // parser.register_token_name(token_open_bracket, "token_open_bracket");
-    // parser.register_token_name(token_close_bracket, "token_close_bracket");
-    // parser.register_token_name(token_end_of_field, "EOF");

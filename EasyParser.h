@@ -1,6 +1,6 @@
 #ifndef EasyParser_H
 #define EasyParser_H
-#include "../EasyLexer/EasyLexer.h"
+#include "EasyLexer/EasyLexer.h"
 #include <algorithm>
 #include <set>
 
@@ -33,7 +33,7 @@ public:
     ParseTreeType type;
     ParseTree (*recursive_parsing)() = nullptr;
     std::vector<ParseTree> other_trees;
-    int evaluate(std::vector<Token>, int, bool, EasyParser);
+    int evaluate(std::vector<Token>&, int, bool, EasyParser&);
     ParseTree();
     ParseTree(Tokens);
     ParseTree(ParseTree (*)());
@@ -66,6 +66,7 @@ private:
 
 public:
     std::map<Tokens, std::string> token_names;
+    std::map<ParseTree (*)(), ParseTree> recursive_trees;
     std::set<int> first_set(ParseTree);
     ParseTree (*program)();
     std::string get_grammar();
