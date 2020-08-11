@@ -199,27 +199,16 @@ void EasyParser::register_token_name(Tokens token, std::string name)
 void EasyParser::parse(std::string program_string)
 {
     std::vector<Token> tokens = EasyLexer::parse(program_string);
-    remove_ignored_tokens(tokens);
     if (tokens.size() == 0)
         return;
     generate_first_sets();
-    generate_follow_sets();
+    //generate_follow_sets();
     if (first_sets[program].find(tokens[0].token) == first_sets[program].end())
         throw SyntaxException(tokens[0]);
-    program().evaluate(tokens, 0, true, *this);
-    program().evaluate(tokens, 0, false, *this);
-}
 
-void EasyParser::remove_ignored_tokens(std::vector<Token> &tokens)
-{
-    for (int i = tokens.size() - 1; i >= 0; i--)
-        if (std::count(ignored_tokens.begin(), ignored_tokens.end(), tokens[i].token))
-            tokens.erase(tokens.begin() + i);
-}
-
-void EasyParser::add_ignored_token(Tokens token)
-{
-    ignored_tokens.push_back(token);
+    
+    recursive_trees[program].evaluate(tokens, 0, true, *this);
+    recursive_trees[program].evaluate(tokens, 0, false, *this);
 }
 
 ParseTree::ParseTree()

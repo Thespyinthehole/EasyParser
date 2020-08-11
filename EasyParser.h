@@ -53,9 +53,7 @@ ParseTree operator<<(Token &, Tokens);
 class EasyParser : public EasyLexer
 {
 private:
-    std::vector<Tokens> ignored_tokens;
     std::map<ParseTree (*)(), std::string> function_names;
-    void remove_ignored_tokens(std::vector<Token> &);
     std::string generate_syntax(ParseTree, bool);
     std::map<ParseTree (*)(), std::set<int>> first_sets;
     std::map<ParseTree (*)(), std::set<int>> follow_sets;
@@ -71,7 +69,6 @@ public:
     ParseTree (*program)();
     std::string get_grammar();
     void parse(std::string);
-    void add_ignored_token(Tokens);
     void register_tree(ParseTree (*)(), std::string);
     void register_token_name(Tokens, std::string);
 };
