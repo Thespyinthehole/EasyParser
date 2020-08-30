@@ -198,4 +198,3 @@ catch (SyntaxException e)
 
 ## Limitations
 - The parser will only report the first error that it finds with the given input.  
-- The parser no longer handles comment tokens.
